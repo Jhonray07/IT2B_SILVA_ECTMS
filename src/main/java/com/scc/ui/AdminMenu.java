@@ -8,11 +8,11 @@ import java.util.Scanner;
 public class AdminMenu {
 
     private final Scanner sc;
-    private final UserDao userdao;
+    private final UserDao userDao;
 
-    public AdminMenu(Scanner sc, UserDao userdao) {
+    public AdminMenu(Scanner sc, UserDao userDao) {
         this.sc = sc;
-        this.userdao = userdao;
+        this.userDao = userDao;
     }
 
     public void display(User admin) {
@@ -36,30 +36,17 @@ public class AdminMenu {
             String input = sc.nextLine().trim();
 
             switch (input) {
-                case "1":
-                    System.out.println("Manage Users is not available yet.");
-                    break;
-                case "2":
-                    System.out.println("Manage Events is not available yet.");
-                    break;
-                case "3":
-                    System.out.println("View All Tickets is not available yet.");
-                    break;
-                case "4":
-                    System.out.println("Reports is not available yet.");
-                    break;
-                case "5":
-                    System.out.println("Audit Logs is not available yet.");
-                    break;
-                case "6":
-                    System.out.println("System Settings is not available yet.");
-                    break;
-                case "0":
+                case "1" -> System.out.println("Manage Users is not available yet.");
+                case "2" -> System.out.println("Manage Events is not available yet.");
+                case "3" -> System.out.println("View All Tickets is not available yet.");
+                case "4" -> System.out.println("Reports is not available yet.");
+                case "5" -> System.out.println("Audit Logs is not available yet.");
+                case "6" -> System.out.println("System Settings is not available yet.");
+                case "0" -> {
                     System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
                     loggedIn = false;
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please enter a number from 0 to 6.");
+                }
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 6.");
             }
         }
     }
