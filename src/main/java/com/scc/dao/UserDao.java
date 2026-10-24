@@ -6,6 +6,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserDao {
 
@@ -57,16 +59,7 @@ public class UserDao {
                         System.out.println(" -> Account is pending, Waiting for Approval");
                         return null;
                     }
-                    return new User(
-                            rs.getInt("userID"),
-                            rs.getString("fullname"),
-                            rs.getString("email"),
-                            rs.getString("username"),
-                            rs.getString("password"),
-                            rs.getString("user_role"),
-                            status,
-                            rs.getString("dateRegistered")
-                    );
+                    return mapUser(rs);
                 } else {
                     System.out.println(" -> Invalid username or password");
                 }
@@ -75,5 +68,65 @@ public class UserDao {
             System.out.println("Database error: " + e.getMessage());
         }
         return null;
+    }
+
+    public List<User> getAllUsers() {
+        String sql = "SELECT * FROM users ORDER BY userID";
+        List<User> users = new ArrayList<>();
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                users.add(mapUser(rs));
+            }
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public List<User> getPendingUsers() {
+        String sql = "SELECT * FROM users WHERE status = ? ORDER BY userID";
+        List<User> users = new ArrayList<>();
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, "PENDING");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    users.add(mapUser(rs));
+                }
+            }
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public boolean approveUser(int userId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE userID = ? AND status = 'PENDING'";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private User mapUser(ResultSet rs) throws SQLException {
+        return new User(
+                rs.getInt("userID"),
+                rs.getString("fullname"),
+                rs.getString("email"),
+                rs.getString("username"),
+                rs.getString("password"),
+                rs.getString("user_role"),
+                rs.getString("status"),
+                rs.getString("dateRegistered")
+        );
     }
 }
