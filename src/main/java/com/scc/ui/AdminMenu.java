@@ -32,6 +32,7 @@ public class AdminMenu {
             System.out.println("  [6] Reports");
             System.out.println("  [7] Audit Logs");
             System.out.println("  [8] System Settings");
+            System.out.println("  [9] Update User Role & Status");
             System.out.println("  [0] Logout");
             System.out.println("------------------------------------------");
             System.out.print("Enter choice: ");
@@ -47,11 +48,12 @@ public class AdminMenu {
                 case "6" -> System.out.println("Reports is not available yet.");
                 case "7" -> System.out.println("Audit Logs is not available yet.");
                 case "8" -> System.out.println("System Settings is not available yet.");
+                case "9" -> updateUser(admin);
                 case "0" -> {
                     System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
                     loggedIn = false;
                 }
-                default -> System.out.println("Invalid choice. Please enter a number from 0 to 8.");
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 9.");
             }
         }
     }
@@ -77,16 +79,7 @@ public class AdminMenu {
         }
 
         while (true) {
-            System.out.print("Enter Target User ID to approve (0 to cancel): ");
-            String input = sc.nextLine().trim();
-
-            int id;
-            try {
-                id = Integer.parseInt(input);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid! Please enter a number.");
-                continue;
-            }
+            int id = readIntInput("Enter Target User ID to approve (0 to cancel): ");
 
             if (id == 0) {
                 System.out.println("Approval cancelled.");
@@ -105,6 +98,103 @@ public class AdminMenu {
                 System.out.println("-> Approval failed. Please try again.");
             }
             return;
+        }
+    }
+
+    private void updateUser(User currentAdmin) {
+        System.out.println("\n--- UPDATE USER ROLE & STATUS ---");
+        List<User> users = userDao.getAllUsers();
+        printUserTable(users);
+
+        if (users.isEmpty()) {
+            return;
+        }
+
+        int targetId;
+        while (true) {
+            targetId = readIntInput("Enter Target User ID to update (0 to cancel): ");
+
+            if (targetId == 0) {
+                System.out.println("Update cancelled.");
+                return;
+            }
+
+            if (targetId == currentAdmin.userID()) {
+                System.out.println("WARNING: Modifying the currently active admin account is restricted.");
+                continue;
+            }
+
+            final int id = targetId;
+            if (users.stream().noneMatch(u -> u.userID() == id)) {
+                System.out.println("Invalid! User ID " + id + " does not exist.");
+                continue;
+            }
+            break;
+        }
+
+        String newRole = readValidRole();
+        if (newRole == null) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        String newStatus = readValidStatus();
+        if (newStatus == null) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        if (userDao.updateUserRoleAndStatus(targetId, newRole, newStatus)) {
+            System.out.println("\n-> Success! User ID " + targetId + " updated to Role: "
+                    + newRole + ", Status: " + newStatus + ".");
+        } else {
+            System.out.println("-> Update failed. Please try again.");
+        }
+    }
+
+    // ---------- Input validation wrappers ----------
+
+    private int readIntInput(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = sc.nextLine().trim();
+            try {
+                return Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid! Please enter a number (digits only).");
+            }
+        }
+    }
+
+    /** Returns a valid role in uppercase, or null if the admin entered 0 to cancel. */
+    private String readValidRole() {
+        while (true) {
+            System.out.print("Enter new role (ADMIN, ORGANIZER, CUSTOMER) (0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+
+            if (input.equals("0")) {
+                return null;
+            }
+            if (input.equals("ADMIN") || input.equals("ORGANIZER") || input.equals("CUSTOMER")) {
+                return input;
+            }
+            System.out.println("Invalid role! Choose ADMIN, ORGANIZER, or CUSTOMER.");
+        }
+    }
+
+    /** Returns a valid status in uppercase, or null if the admin entered 0 to cancel. */
+    private String readValidStatus() {
+        while (true) {
+            System.out.print("Enter new status (APPROVED, PENDING) (0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+
+            if (input.equals("0")) {
+                return null;
+            }
+            if (input.equals("APPROVED") || input.equals("PENDING")) {
+                return input;
+            }
+            System.out.println("Invalid status! Choose APPROVED or PENDING.");
         }
     }
 

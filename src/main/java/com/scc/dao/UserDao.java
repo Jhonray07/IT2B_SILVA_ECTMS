@@ -117,6 +117,22 @@ public class UserDao {
         }
     }
 
+    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+        // Column names follow the actual schema: user_role and userID
+        String sql = "UPDATE users SET user_role = ?, status = ? WHERE userID = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, newRole.toUpperCase());
+            pstmt.setString(2, newStatus.toUpperCase());
+            pstmt.setInt(3, userId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            System.out.println("Database error: " + e.getMessage());
+            return false;
+        }
+    }
+
     private User mapUser(ResultSet rs) throws SQLException {
         return new User(
                 rs.getInt("userID"),
