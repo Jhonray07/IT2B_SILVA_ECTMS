@@ -24,17 +24,49 @@ public class AdminMenu {
             System.out.println("  EVENT & CONFERENCE TICKETING SYSTEM");
             System.out.println("  ADMIN MENU  | Logged in: " + admin.fullname());
             System.out.println("==========================================");
-            System.out.println("  [1] View All System Users");
-            System.out.println("  [2] View Pending Registrations");
-            System.out.println("  [3] Approve User Account");
-            System.out.println("  [4] Manage Events");
-            System.out.println("  [5] View All Tickets");
-            System.out.println("  [6] Reports");
-            System.out.println("  [7] Audit Logs");
-            System.out.println("  [8] System Settings");
-            System.out.println("  [9] Update User Role & Status");
+            System.out.println("  [1] Manage Users");
+            System.out.println("  [2] Manage Events");
+            System.out.println("  [3] View All Tickets");
+            System.out.println("  [4] Reports");
+            System.out.println("  [5] Audit Logs");
+            System.out.println("  [6] System Settings");
             System.out.println("  [0] Logout");
             System.out.println("------------------------------------------");
+            System.out.print("Enter choice: ");
+
+            String input = sc.nextLine().trim();
+
+            switch (input) {
+                case "1" -> manageUsers(admin);
+                case "2" -> System.out.println("Manage Events is not available yet.");
+                case "3" -> System.out.println("View All Tickets is not available yet.");
+                case "4" -> System.out.println("Reports is not available yet.");
+                case "5" -> System.out.println("Audit Logs is not available yet.");
+                case "6" -> System.out.println("System Settings is not available yet.");
+                case "0" -> {
+                    System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
+                    loggedIn = false;
+                }
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 6.");
+            }
+        }
+    }
+
+    // ---------- Manage Users submenu (CRUD) ----------
+
+    private void manageUsers(User admin) {
+        boolean back = false;
+
+        while (!back) {
+            System.out.println("\n------------- MANAGE USERS -------------");
+            System.out.println("  READ");
+            System.out.println("  [1] View All Users");
+            System.out.println("  [2] View Pending Registrations");
+            System.out.println("  UPDATE");
+            System.out.println("  [3] Approve User Account");
+            System.out.println("  [4] Update User Role & Status");
+            System.out.println("  [0] Back");
+            System.out.println("----------------------------------------");
             System.out.print("Enter choice: ");
 
             String input = sc.nextLine().trim();
@@ -43,17 +75,9 @@ public class AdminMenu {
                 case "1" -> viewAllUsers();
                 case "2" -> viewPendingUsers();
                 case "3" -> approveUser();
-                case "4" -> System.out.println("Manage Events is not available yet.");
-                case "5" -> System.out.println("View All Tickets is not available yet.");
-                case "6" -> System.out.println("Reports is not available yet.");
-                case "7" -> System.out.println("Audit Logs is not available yet.");
-                case "8" -> System.out.println("System Settings is not available yet.");
-                case "9" -> updateUser(admin);
-                case "0" -> {
-                    System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
-                    loggedIn = false;
-                }
-                default -> System.out.println("Invalid choice. Please enter a number from 0 to 9.");
+                case "4" -> updateUser(admin);
+                case "0" -> back = true;
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 4.");
             }
         }
     }

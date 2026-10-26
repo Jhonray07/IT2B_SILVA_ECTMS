@@ -25,7 +25,7 @@ public class DatabaseInitializer {
             """);
 
             // TODO: add the other ERD tables here (events, tickets, etc.)
-            // Parent tables first so FOREIGN KEYs work.
+
 
             seedDefaultAdmin(conn);
             System.out.println("-> Database initialized");

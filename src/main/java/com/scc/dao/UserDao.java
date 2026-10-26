@@ -118,7 +118,6 @@ public class UserDao {
     }
 
     public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
-        // Column names follow the actual schema: user_role and userID
         String sql = "UPDATE users SET user_role = ?, status = ? WHERE userID = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
