@@ -11,6 +11,8 @@ import java.util.List;
 
 public class UserDao {
 
+    private final ActivityLogDao activityLogDao = new ActivityLogDao();
+
     public boolean registerUser(String fullname, String email, String username, String password, String user_role) {
         String sql = "INSERT INTO users(fullname, email, username, password, user_role, status) VALUES(?, ?, ?, ?, ?, 'PENDING')";
 
@@ -104,32 +106,47 @@ public class UserDao {
         return users;
     }
 
-    public boolean approveUser(int userId) {
+    public boolean approveUser(int adminId, int userId) {
         String sql = "UPDATE users SET status = 'APPROVED' WHERE userID = ? AND status = 'PENDING'";
+        boolean updated;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
-            return pstmt.executeUpdate() > 0;
+            updated = pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("Database error: " + e.getMessage());
             return false;
         }
+
+        if (updated) {
+            activityLogDao.logAction(adminId, "USER_APPROVED",
+                    "Admin " + adminId + " approved account for User ID " + userId);
+        }
+        return updated;
     }
 
-    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
+    public boolean updateUserRoleAndStatus(int adminId, int userId, String newRole, String newStatus) {
         String sql = "UPDATE users SET user_role = ?, status = ? WHERE userID = ?";
+        boolean updated;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, newRole.toUpperCase());
             pstmt.setString(2, newStatus.toUpperCase());
             pstmt.setInt(3, userId);
-            return pstmt.executeUpdate() > 0;
+            updated = pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.out.println("Database error: " + e.getMessage());
             return false;
         }
+
+        if (updated) {
+            activityLogDao.logAction(adminId, "USER_UPDATED",
+                    "Admin " + adminId + " changed User " + userId + " to role "
+                            + newRole.toUpperCase() + ", status " + newStatus.toUpperCase());
+        }
+        return updated;
     }
 
     private User mapUser(ResultSet rs) throws SQLException {

@@ -1,8 +1,16 @@
 package com.scc.ui;
 
+import com.scc.dao.ActivityLogDao;
+import com.scc.dao.EventDao;
+import com.scc.dao.TicketDao;
 import com.scc.dao.UserDao;
+import com.scc.model.ActivityLog;
+import com.scc.model.AdminEvent;
+import com.scc.model.Ticket;
 import com.scc.model.User;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
 
@@ -10,6 +18,9 @@ public class AdminMenu {
 
     private final Scanner sc;
     private final UserDao userDao;
+    private final ActivityLogDao activityLogDao = new ActivityLogDao();
+    private final TicketDao ticketDao = new TicketDao();
+    private final EventDao eventDao = new EventDao();
 
     public AdminMenu(Scanner sc, UserDao userDao) {
         this.sc = sc;
@@ -26,9 +37,9 @@ public class AdminMenu {
             System.out.println("==========================================");
             System.out.println("  [1] Manage Users");
             System.out.println("  [2] Manage Events");
-            System.out.println("  [3] View All Tickets");
+            System.out.println("  [3] Manage Tickets");
             System.out.println("  [4] Reports");
-            System.out.println("  [5] Audit Logs");
+            System.out.println("  [5] View System Audit Logs");
             System.out.println("  [6] System Settings");
             System.out.println("  [0] Logout");
             System.out.println("------------------------------------------");
@@ -38,10 +49,10 @@ public class AdminMenu {
 
             switch (input) {
                 case "1" -> manageUsers(admin);
-                case "2" -> System.out.println("Manage Events is not available yet.");
-                case "3" -> System.out.println("View All Tickets is not available yet.");
+                case "2" -> manageEvents(admin);
+                case "3" -> manageTickets(admin);
                 case "4" -> System.out.println("Reports is not available yet.");
-                case "5" -> System.out.println("Audit Logs is not available yet.");
+                case "5" -> auditLogs();
                 case "6" -> System.out.println("System Settings is not available yet.");
                 case "0" -> {
                     System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
@@ -52,7 +63,6 @@ public class AdminMenu {
         }
     }
 
-    // ---------- Manage Users submenu (CRUD) ----------
 
     private void manageUsers(User admin) {
         boolean back = false;
@@ -72,7 +82,7 @@ public class AdminMenu {
             switch (input) {
                 case "1" -> viewAllUsers();
                 case "2" -> viewPendingUsers();
-                case "3" -> approveUser();
+                case "3" -> approveUser(admin);
                 case "4" -> updateUser(admin);
                 case "0" -> back = true;
                 default -> System.out.println("Invalid choice. Please enter a number from 0 to 4.");
@@ -90,7 +100,7 @@ public class AdminMenu {
         printUserTable(userDao.getPendingUsers());
     }
 
-    private void approveUser() {
+    private void approveUser(User admin) {
         List<User> pending = userDao.getPendingUsers();
 
         System.out.println("\n--- APPROVE USER ACCOUNT ---");
@@ -114,7 +124,7 @@ public class AdminMenu {
                 continue;
             }
 
-            if (userDao.approveUser(id)) {
+            if (userDao.approveUser(admin.userID(), id)) {
                 System.out.println("\n-> Success! User ID " + id + " has been APPROVED.");
             } else {
                 System.out.println("-> Approval failed. Please try again.");
@@ -166,7 +176,7 @@ public class AdminMenu {
             return;
         }
 
-        if (userDao.updateUserRoleAndStatus(targetId, newRole, newStatus)) {
+        if (userDao.updateUserRoleAndStatus(currentAdmin.userID(), targetId, newRole, newStatus)) {
             System.out.println("\n-> Success! User ID " + targetId + " updated to Role: "
                     + newRole + ", Status: " + newStatus + ".");
         } else {
@@ -174,7 +184,372 @@ public class AdminMenu {
         }
     }
 
-    // ---------- Input validation wrappers ----------
+
+
+
+    private void manageEvents(User admin) {
+        boolean back = false;
+
+        while (!back) {
+            System.out.println("\n------------- MANAGE EVENTS -------------");
+            System.out.println("  [1] View All Events");
+            System.out.println("  [2] Update Event");
+            System.out.println("  [3] Cancel Event");
+            System.out.println("  [0] Back");
+            System.out.println("-----------------------------------------");
+            System.out.print("Enter choice: ");
+
+            String input = sc.nextLine().trim();
+
+            switch (input) {
+                case "1" -> {
+                    System.out.println("\n--- ALL EVENTS ---");
+                    printAdminEventTable(eventDao.getAllEventsForAdmin());
+                }
+                case "2" -> updateEvent(admin);
+                case "3" -> cancelEvent(admin);
+                case "0" -> back = true;
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 3.");
+            }
+        }
+    }
+
+    private void updateEvent(User admin) {
+        System.out.println("\n--- UPDATE EVENT ---");
+        List<AdminEvent> events = eventDao.getAllEventsForAdmin();
+        printAdminEventTable(events);
+
+        if (events.isEmpty()) {
+            return;
+        }
+
+        AdminEvent ev = pickEvent(events, "Enter Event ID to update (0 to cancel): ");
+        if (ev == null) {
+            return;
+        }
+
+        if (!isFutureDate(ev.eventDate())) {
+            System.out.println("This event has already started or its date is not valid. It can no longer be updated.");
+            return;
+        }
+
+        System.out.println("(Press Enter to keep the current value)");
+
+        String title = readKeep("Title", ev.title());
+        String venue = readKeep("Venue", ev.venue());
+
+        String date;
+        while (true) {
+            date = readKeep("Date (YYYY-MM-DD)", ev.eventDate());
+            if (date.equals(ev.eventDate()) || isFutureDate(date)) {
+                break;
+            }
+            System.out.println("Invalid! Use YYYY-MM-DD and a future date.");
+        }
+
+        double price;
+        while (true) {
+            String in = readKeep("Price", String.format("%.2f", ev.price()));
+            try {
+                price = Double.parseDouble(in);
+                if (price >= 0) {
+                    break;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            System.out.println("Invalid! Enter a price of 0 or more.");
+        }
+
+        int capacity;
+        while (true) {
+            String in = readKeep("Capacity", String.valueOf(ev.capacity()));
+            try {
+                capacity = Integer.parseInt(in);
+                if (capacity > 0) {
+                    break;
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            System.out.println("Invalid! Enter a whole number greater than 0.");
+        }
+
+        if (eventDao.adminUpdateEvent(admin.userID(), ev.eventID(), title, venue, date, price, capacity)) {
+            System.out.println("\n-> Success! Event #" + ev.eventID() + " has been updated.");
+        } else {
+            System.out.println("-> Update failed.");
+        }
+    }
+
+    private void cancelEvent(User admin) {
+        System.out.println("\n--- CANCEL EVENT ---");
+        List<AdminEvent> events = eventDao.getAllEventsForAdmin();
+        printAdminEventTable(events);
+
+        if (events.isEmpty()) {
+            return;
+        }
+
+        AdminEvent ev = pickEvent(events, "Enter Event ID to cancel (0 to go back): ");
+        if (ev == null) {
+            return;
+        }
+
+        System.out.print("Cancel '" + ev.title() + "'? All its tickets will be voided. (Y/N): ");
+        String confirm = sc.nextLine().trim();
+        if (!confirm.equalsIgnoreCase("Y")) {
+            System.out.println("Cancellation aborted.");
+            return;
+        }
+
+        int voided = eventDao.adminCancelEvent(admin.userID(), ev.eventID());
+        if (voided >= 0) {
+            System.out.println("\n-> Event #" + ev.eventID() + " cancelled. Tickets voided: " + voided);
+        } else {
+            System.out.println("-> Cancellation failed.");
+        }
+    }
+
+    private AdminEvent pickEvent(List<AdminEvent> events, String prompt) {
+        while (true) {
+            int id = readIntInput(prompt);
+            if (id == 0) {
+                System.out.println("Cancelled.");
+                return null;
+            }
+
+            AdminEvent match = null;
+            for (AdminEvent e : events) {
+                if (e.eventID() == id) {
+                    match = e;
+                    break;
+                }
+            }
+
+            if (match == null) {
+                System.out.println("Invalid! Event ID " + id + " does not exist.");
+                continue;
+            }
+            if (match.status().equals("CANCELLED")) {
+                System.out.println("That event is already cancelled.");
+                continue;
+            }
+            return match;
+        }
+    }
+
+    private boolean isFutureDate(String date) {
+        try {
+            return LocalDate.parse(date).isAfter(LocalDate.now());
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private String readKeep(String label, String current) {
+        System.out.print(label + " [" + current + "]: ");
+        String input = sc.nextLine().trim();
+        return input.isEmpty() ? current : input;
+    }
+
+    private void printAdminEventTable(List<AdminEvent> events) {
+        if (events.isEmpty()) {
+            System.out.println("No events to display.");
+            return;
+        }
+
+        String format = "| %-4s | %-22s | %-12s | %-14s | %-10s | %9s | %-7s | %-9s |%n";
+        String border = "+------+------------------------+--------------+----------------+------------+-----------+---------+-----------+";
+
+        System.out.println(border);
+        System.out.printf(format, "ID", "Title", "Organizer", "Venue", "Date", "Price", "Sold", "Status");
+        System.out.println(border);
+        for (AdminEvent e : events) {
+            System.out.printf(format, e.eventID(), e.title(), e.organizer(), e.venue(), e.eventDate(),
+                    String.format("P%.2f", e.price()), e.sold() + "/" + e.capacity(), e.status());
+        }
+        System.out.println(border);
+        System.out.println("Total: " + events.size());
+    }
+
+
+
+
+    private void manageTickets(User admin) {
+        boolean back = false;
+
+        while (!back) {
+            System.out.println("\n------------- MANAGE TICKETS -------------");
+            System.out.println("  [1] View All Tickets");
+            System.out.println("  [2] Update Ticket Status");
+            System.out.println("  [0] Back");
+            System.out.println("------------------------------------------");
+            System.out.print("Enter choice: ");
+
+            String input = sc.nextLine().trim();
+
+            switch (input) {
+                case "1" -> {
+                    System.out.println("\n--- ALL TICKETS ---");
+                    printTicketTable(ticketDao.getAllTickets());
+                }
+                case "2" -> updateTicketStatus(admin);
+                case "0" -> back = true;
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 2.");
+            }
+        }
+    }
+
+    private void updateTicketStatus(User admin) {
+        System.out.println("\n--- UPDATE TICKET STATUS ---");
+        List<Ticket> tickets = ticketDao.getAllTickets();
+        printTicketTable(tickets);
+
+        if (tickets.isEmpty()) {
+            return;
+        }
+
+        int ticketId;
+        while (true) {
+            ticketId = readIntInput("Enter Ticket ID to update (0 to cancel): ");
+            if (ticketId == 0) {
+                System.out.println("Update cancelled.");
+                return;
+            }
+            final int id = ticketId;
+            if (tickets.stream().noneMatch(t -> t.ticketID() == id)) {
+                System.out.println("Invalid! Ticket ID " + id + " does not exist.");
+                continue;
+            }
+            break;
+        }
+
+        String newStatus = readValidTicketStatus();
+        if (newStatus == null) {
+            System.out.println("Update cancelled.");
+            return;
+        }
+
+        if (ticketDao.updateTicketStatus(admin.userID(), ticketId, newStatus)) {
+            System.out.println("\n-> Success! Ticket #" + ticketId + " is now " + newStatus + ".");
+        } else {
+            System.out.println("-> Update failed.");
+        }
+    }
+
+    private String readValidTicketStatus() {
+        while (true) {
+            System.out.print("Enter new status (PAID, CANCELLED) (0 to cancel): ");
+            String input = sc.nextLine().trim().toUpperCase();
+
+            if (input.equals("0")) {
+                return null;
+            }
+            if (input.equals("PAID") || input.equals("CANCELLED")) {
+                return input;
+            }
+            System.out.println("Invalid status! Choose PAID or CANCELLED.");
+        }
+    }
+
+    private void printTicketTable(List<Ticket> tickets) {
+        if (tickets.isEmpty()) {
+            System.out.println("No tickets to display.");
+            return;
+        }
+
+        String format = "| %-6s | %-22s | %-12s | %-3s | %10s | %-10s |%n";
+        String border = "+--------+------------------------+--------------+-----+------------+------------+";
+
+        System.out.println(border);
+        System.out.printf(format, "Ticket", "Event", "Customer", "Qty", "Total", "Status");
+        System.out.println(border);
+        for (Ticket t : tickets) {
+            System.out.printf(format, t.ticketID(), t.eventTitle(), t.customerUsername(), t.quantity(),
+                    String.format("P%.2f", t.totalAmount()), t.status());
+        }
+        System.out.println(border);
+        System.out.println("Total: " + tickets.size());
+    }
+
+
+
+
+    private void auditLogs() {
+        boolean back = false;
+
+        while (!back) {
+            System.out.println("\n----------- SYSTEM AUDIT LOGS -----------");
+            System.out.println("  [1] View All System Logs");
+            System.out.println("  [2] Filter Logs by User ID");
+            System.out.println("  [0] Back");
+            System.out.println("-----------------------------------------");
+            System.out.print("Enter choice: ");
+
+            String input = sc.nextLine().trim();
+
+            switch (input) {
+                case "1" -> {
+                    System.out.println("\n--- ALL SYSTEM LOGS ---");
+                    printLogTable(activityLogDao.getAllLogs());
+                }
+                case "2" -> filterLogsByUser();
+                case "0" -> back = true;
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 2.");
+            }
+        }
+    }
+
+    private void filterLogsByUser() {
+        int userId = readIntInput("Enter User ID to filter (0 to cancel): ");
+        if (userId == 0) {
+            System.out.println("Filter cancelled.");
+            return;
+        }
+        System.out.println("\n--- LOGS FOR USER ID " + userId + " ---");
+        printLogTable(activityLogDao.getLogsByUserId(userId));
+    }
+
+    private void printLogTable(List<ActivityLog> logs) {
+        if (logs.isEmpty()) {
+            System.out.println("No logs to display.");
+            return;
+        }
+
+        final int descWidth = 35;
+        String format = "%-5s | %-8s | %-18s | %-35s | %-20s%n";
+        String border = "-".repeat(5 + 3 + 8 + 3 + 18 + 3 + descWidth + 3 + 20);
+
+        System.out.println(border);
+        System.out.printf(format, "ID", "User ID", "Action Type", "Description", "Timestamp");
+        System.out.println(border);
+        for (ActivityLog log : logs) {
+            List<String> lines = wrap(log.description(), descWidth);
+            System.out.printf(format, log.id(), log.userId(), log.actionType(), lines.get(0), log.timestamp());
+            for (int i = 1; i < lines.size(); i++) {
+                System.out.printf(format, "", "", "", lines.get(i), "");
+            }
+        }
+        System.out.println(border);
+        System.out.println("Total: " + logs.size());
+    }
+
+    private List<String> wrap(String text, int width) {
+        List<String> lines = new java.util.ArrayList<>();
+        String rest = text.trim();
+
+        while (rest.length() > width) {
+            int cut = rest.lastIndexOf(' ', width);
+            if (cut <= 0) {
+                cut = width;
+            }
+            lines.add(rest.substring(0, cut).trim());
+            rest = rest.substring(cut).trim();
+        }
+        lines.add(rest);
+        return lines;
+    }
+
+
 
     private int readIntInput(String prompt) {
         while (true) {
@@ -188,7 +563,6 @@ public class AdminMenu {
         }
     }
 
-    /** Returns a valid role in uppercase, or null if the admin entered 0 to cancel. */
     private String readValidRole() {
         while (true) {
             System.out.print("Enter new role (ADMIN, ORGANIZER, CUSTOMER) (0 to cancel): ");
@@ -204,7 +578,6 @@ public class AdminMenu {
         }
     }
 
-    /** Returns a valid status in uppercase, or null if the admin entered 0 to cancel. */
     private String readValidStatus() {
         while (true) {
             System.out.print("Enter new status (APPROVED, PENDING) (0 to cancel): ");

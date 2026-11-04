@@ -24,15 +24,62 @@ public class DatabaseInitializer {
                 )
             """);
 
-            // TODO: add the other ERD tables here (events, tickets, etc.)
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS activity_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    action_type TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    timestamp TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    FOREIGN KEY (user_id) REFERENCES users(userID) ON DELETE CASCADE
+                )
+            """);
 
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS events (
+                    eventID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    venue TEXT NOT NULL,
+                    event_date TEXT NOT NULL,
+                    price REAL NOT NULL CHECK (price >= 0),
+                    capacity INTEGER NOT NULL CHECK (capacity > 0)
+                )
+            """);
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS tickets (
+                    ticketID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id INTEGER NOT NULL,
+                    customer_id INTEGER NOT NULL,
+                    quantity INTEGER NOT NULL CHECK (quantity > 0),
+                    total_amount REAL NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PAID','CANCELLED')),
+                    purchased_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                    FOREIGN KEY (event_id) REFERENCES events(eventID) ON DELETE CASCADE,
+                    FOREIGN KEY (customer_id) REFERENCES users(userID) ON DELETE CASCADE
+                )
+            """);
 
             seedDefaultAdmin(conn);
+            seedSampleEvents(conn);
             System.out.println("-> Database initialized");
 
         } catch (SQLException e) {
             System.err.println("Database initialization failed: " + e.getMessage());
             System.exit(1);
+        }
+    }
+
+    private static void seedSampleEvents(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM events")) {
+            if (rs.next() && rs.getInt(1) == 0) {
+                stmt.executeUpdate("INSERT INTO events(title, venue, event_date, price, capacity) VALUES "
+                        + "('Tech Summit 2026', 'Main Hall', '2026-12-05', 500.00, 100), "
+                        + "('Music Fest', 'Open Grounds', '2026-12-12', 1200.00, 200), "
+                        + "('Startup Pitch Night', 'Auditorium', '2026-12-20', 250.00, 50)");
+                System.out.println("-> Sample events created");
+            }
         }
     }
 
