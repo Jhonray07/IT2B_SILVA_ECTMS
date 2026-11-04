@@ -59,10 +59,8 @@ public class AdminMenu {
 
         while (!back) {
             System.out.println("\n------------- MANAGE USERS -------------");
-            System.out.println("  READ");
             System.out.println("  [1] View All Users");
             System.out.println("  [2] View Pending Registrations");
-            System.out.println("  UPDATE");
             System.out.println("  [3] Approve User Account");
             System.out.println("  [4] Update User Role & Status");
             System.out.println("  [0] Back");
