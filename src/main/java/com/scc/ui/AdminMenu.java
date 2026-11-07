@@ -1,6 +1,7 @@
 package com.scc.ui;
 
 import com.scc.dao.ActivityLogDao;
+import com.scc.dao.DatabaseInitializer;
 import com.scc.dao.EventDao;
 import com.scc.dao.TicketDao;
 import com.scc.dao.UserDao;
@@ -32,7 +33,7 @@ public class AdminMenu {
 
         while (loggedIn) {
             System.out.println("\n==========================================");
-            System.out.println("  EVENT & CONFERENCE TICKETING SYSTEM");
+            System.out.println("  EVENT & CONFERENCE TICKETING SYSTEM ");
             System.out.println("  ADMIN MENU  | Logged in: " + admin.fullname());
             System.out.println("==========================================");
             System.out.println("  [1] Manage Users");
@@ -52,8 +53,12 @@ public class AdminMenu {
                 case "2" -> manageEvents(admin);
                 case "3" -> manageTickets(admin);
                 case "4" -> System.out.println("Reports is not available yet.");
-                case "5" -> auditLogs();
-                case "6" -> System.out.println("System Settings is not available yet.");
+                case "5" -> auditLogs(admin);
+                case "6" -> {
+                    if (systemSettings()) {
+                        loggedIn = false; // force logout after reset
+                    }
+                }
                 case "0" -> {
                     System.out.println("Logging out... Goodbye, " + admin.fullname() + "!");
                     loggedIn = false;
@@ -61,6 +66,40 @@ public class AdminMenu {
                 default -> System.out.println("Invalid choice. Please enter a number from 0 to 6.");
             }
         }
+    }
+
+
+    // returns true if the database was reset
+    private boolean systemSettings() {
+        System.out.println("\n----------- SYSTEM SETTINGS -----------");
+        System.out.println("  [1] Reset Database");
+        System.out.println("  [0] Back");
+        System.out.println("---------------------------------------");
+        System.out.print("Enter choice: ");
+
+        String input = sc.nextLine().trim();
+        switch (input) {
+            case "1" -> {
+                System.out.println("\nWARNING: This will DELETE all users, events, tickets, and logs.");
+                System.out.println("Only the default admin and sample events will be restored.");
+                System.out.print("Type RESET to confirm (anything else cancels): ");
+                String confirm = sc.nextLine().trim();
+
+                if (!confirm.equals("RESET")) {
+                    System.out.println("Reset cancelled.");
+                    return false;
+                }
+                if (DatabaseInitializer.resetDatabase()) {
+                    System.out.println("\n-> Database reset complete. You will now be logged out.");
+                    System.out.println("   Login with the default admin: admin / admin123");
+                    return true;
+                }
+                System.out.println("-> Reset failed.");
+            }
+            case "0" -> { }
+            default -> System.out.println("Invalid choice. Please enter 0 or 1.");
+        }
+        return false;
     }
 
 
@@ -183,8 +222,6 @@ public class AdminMenu {
             System.out.println("-> Update failed. Please try again.");
         }
     }
-
-
 
 
     private void manageEvents(User admin) {
@@ -372,8 +409,6 @@ public class AdminMenu {
     }
 
 
-
-
     private void manageTickets(User admin) {
         boolean back = false;
 
@@ -472,15 +507,14 @@ public class AdminMenu {
     }
 
 
-
-
-    private void auditLogs() {
+    private void auditLogs(User admin) {
         boolean back = false;
 
         while (!back) {
             System.out.println("\n----------- SYSTEM AUDIT LOGS -----------");
             System.out.println("  [1] View All System Logs");
             System.out.println("  [2] Filter Logs by User ID");
+            System.out.println("  [3] Clear All Logs");
             System.out.println("  [0] Back");
             System.out.println("-----------------------------------------");
             System.out.print("Enter choice: ");
@@ -493,8 +527,9 @@ public class AdminMenu {
                     printLogTable(activityLogDao.getAllLogs());
                 }
                 case "2" -> filterLogsByUser();
+                case "3" -> clearLogs(admin);
                 case "0" -> back = true;
-                default -> System.out.println("Invalid choice. Please enter a number from 0 to 2.");
+                default -> System.out.println("Invalid choice. Please enter a number from 0 to 3.");
             }
         }
     }
@@ -507,6 +542,22 @@ public class AdminMenu {
         }
         System.out.println("\n--- LOGS FOR USER ID " + userId + " ---");
         printLogTable(activityLogDao.getLogsByUserId(userId));
+    }
+
+    private void clearLogs(User admin) {
+        System.out.print("\nDelete ALL audit logs and restart log IDs at 1? (Y/N): ");
+        String confirm = sc.nextLine().trim();
+
+        if (!confirm.equalsIgnoreCase("Y")) {
+            System.out.println("Clear logs cancelled.");
+            return;
+        }
+
+        if (activityLogDao.clearAllLogs(admin.userID())) {
+            System.out.println("\n-> All logs cleared. IDs will restart at 1.");
+        } else {
+            System.out.println("-> Failed to clear logs.");
+        }
     }
 
     private void printLogTable(List<ActivityLog> logs) {
@@ -548,7 +599,6 @@ public class AdminMenu {
         lines.add(rest);
         return lines;
     }
-
 
 
     private int readIntInput(String prompt) {

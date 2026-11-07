@@ -42,7 +42,9 @@ public class DatabaseInitializer {
                     venue TEXT NOT NULL,
                     event_date TEXT NOT NULL,
                     price REAL NOT NULL CHECK (price >= 0),
-                    capacity INTEGER NOT NULL CHECK (capacity > 0)
+                    capacity INTEGER NOT NULL CHECK (capacity > 0),
+                    organizer_id INTEGER,
+                    status TEXT DEFAULT 'ACTIVE'
                 )
             """);
 
@@ -68,6 +70,23 @@ public class DatabaseInitializer {
             System.err.println("Database initialization failed: " + e.getMessage());
             System.exit(1);
         }
+    }
+
+    // Deletes ALL data, then rebuilds tables + default admin + sample events.
+    public static boolean resetDatabase() {
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+            // child tables first, so foreign keys don't block the drop
+            stmt.execute("DROP TABLE IF EXISTS tickets");
+            stmt.execute("DROP TABLE IF EXISTS events");
+            stmt.execute("DROP TABLE IF EXISTS activity_logs");
+            stmt.execute("DROP TABLE IF EXISTS users");
+        } catch (SQLException e) {
+            System.out.println("Reset failed: " + e.getMessage());
+            return false;
+        }
+        initialize();
+        return true;
     }
 
     private static void seedSampleEvents(Connection conn) throws SQLException {
